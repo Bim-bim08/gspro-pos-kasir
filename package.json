@@ -1,0 +1,21 @@
+{
+  "name": "gspro-pos-kasir",
+  "version": "1.0.0",
+  "description": "Aplikasi POS / Kasir untuk Kantin/Koperasi SMK Jakarta Pusat 1",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js",
+    "seed": "node seed.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "ejs": "^3.1.10",
+    "express": "^4.19.2",
+    "multer": "^2.2.0",
+    "mysql2": "^3.9.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}

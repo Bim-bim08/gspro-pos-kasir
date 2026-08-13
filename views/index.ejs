@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+<body>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast">
+    <div class="toast-content">
+      <i class="fas fa-check-circle"></i>
+      <span id="toastMessage">Berhasil</span>
+    </div>
+  </div>
+
+  <!-- ====== SPLIT SCREEN LAYOUT ====== -->
+  <div class="pos-container">
+
+    <!-- ====== LEFT PANEL (60%) - Products ====== -->
+    <div class="panel panel-left">
+
+      <!-- Header Sekolah -->
+      <div class="school-header">
+        <div class="school-brand">
+          <div class="school-logo">
+            <i class="fas fa-school"></i>
+          </div>
+          <div class="school-info">
+            <h1 class="school-name">SMK Jakarta Pusat 1</h1>
+            <span class="school-subtitle">Gspro - Point of Sale System</span>
+          </div>
+        </div>
+        <div class="header-actions">
+          <span class="badge-total-products" id="totalProducts"><%= products.length %> Produk</span>
+
+          <!-- Daily Summary Widget -->
+          <div class="daily-summary" id="dailySummary" title="Ringkasan Penjualan Hari Ini" onclick="openIncomeModal()" style="cursor:pointer">
+            <div class="daily-summary-loading" id="dailySummaryLoading">
+              <div class="spinner-xs"></div>
+            </div>
+            <div class="daily-summary-content" id="dailySummaryContent" style="display:none">
+              <div class="daily-revenue">
+                <i class="fas fa-money-bill-trend-up"></i>
+                <span id="dailyRevenue">Rp 0</span>
+              </div>
+              <div class="daily-divider"></div>
+              <div class="daily-transactions">
+                <i class="fas fa-receipt"></i>
+                <span id="dailyTransactions">0</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tombol Tambah / Kelola Produk -->
+          <button class="btn-icon" onclick="openProductModal()" title="Tambah / Kelola Produk">
+            <i class="fas fa-plus"></i>
+          </button>
+          <!-- Tombol Penyesuaian Stok -->
+          <button class="btn-icon btn-icon-warning" onclick="openStockAdjustment()" title="Catat Penyesuaian Stok">
+            <i class="fas fa-clipboard-list"></i>
+          </button>
+          <!-- Tombol Riwayat Stok -->
+          <button class="btn-icon" onclick="openStockHistory()" title="Riwayat Stok Hilang & Rusak">
+            <i class="fas fa-chart-simple"></i>
+          </button>
+          <!-- Tombol Riwayat Transaksi -->
+          <button class="btn-icon" onclick="openHistory()" title="Riwayat Transaksi">
+            <i class="fas fa-receipt"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Search & Filter Bar -->
+      <div class="search-filter-bar">
+        <div class="search-wrapper">
+          <i class="fas fa-search search-icon"></i>
+          <input
+            type="text"
+            id="searchInput"
+            class="search-input"
+            placeholder="Cari produk atau scan barcode... (F2)"
+            autofocus
+          />
+          <kbd class="search-hint">F2</kbd>
+          <button class="btn-clear-search" id="clearSearch" onclick="clearSearch()">
+            <i class="fas fa-xmark"></i>
+          </button>
+        </div>
+        <div class="category-filter" id="categoryFilter">
+          <button class="category-btn active" data-category="Semua" onclick="filterCategory('Semua')">
+            <i class="fas fa-th-large"></i> Semua
+          </button>
+          <% categories.forEach(cat => { %>
+            <button class="category-btn" data-category="<%= cat %>" onclick="filterCategory('<%= cat %>')">
+              <i class="fas fa-tag"></i> <%= cat %>
+            </button>
+          <% }) %>
+        </div>
+      </div>
+
+      <!-- Product Grid -->
+      <div class="product-grid-wrapper">
+        <div class="product-grid" id="productGrid">
+          <% products.forEach(product => { %>
+            <div class="product-card <%= product.stock <= 0 ? 'product-disabled' : '' %>" data-category="<%= product.category %>" data-id="<%= product.id %>" data-stock="<%= product.stock %>">
+              <div class="product-image">
+                <% if (product.image_url) { %>
+                  <img src="<%= product.image_url %>" alt="<%= product.name %>">
+                <% } else { %>
+                  <div class="product-image-placeholder">
+                    <i class="fas fa-box-open"></i>
+                  </div>
+                <% } %>
+                <% if (product.stock <= 0) { %>
+                  <span class="product-stock-badge out">Habis</span>
+                <% } else if (product.stock <= 5) { %>
+                  <span class="product-stock-badge low">Sisa <%= product.stock %></span>
+                <% } else { %>
+                  <span class="product-stock-badge in-stock">Stok <%= product.stock %></span>
+                <% } %>
+              </div>
+              <div class="product-info">
+                <span class="product-category"><%= product.category %></span>
+                <h3 class="product-name"><%= product.name %></h3>
+                <div class="product-footer">
+                  <div class="product-price-group">
+                    <span class="product-price">Rp <%= Number(product.price).toLocaleString('id-ID') %></span>
+                    <span class="product-stock-text">Stok: <%= product.stock %></span>
+                  </div>
+                  <button class="btn-add-cart" onclick="addToCart(<%= product.id %>, '<%= product.name.replace(/'/g, "\\'") %>', <%= product.price %>)" <%= product.stock <= 0 ? 'disabled' : '' %>>
+                    <i class="fas fa-plus"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ====== RIGHT PANEL (40%) - Cart & Payment ====== -->
+    <div class="panel panel-right">
+
+      <!-- Cart Header -->
+      <div class="cart-header">
+        <h2 class="cart-title">
+          <i class="fas fa-shopping-cart"></i>
+          Keranjang Belanja
+        </h2>
+        <button class="btn-text danger" id="clearCartBtn" onclick="clearCart()" style="display:none">
+          <i class="fas fa-trash-can"></i> Kosongkan
+        </button>
+      </div>
+
+      <!-- Cart Items -->
+      <div class="cart-items" id="cartItems">
+        <div class="cart-empty">
+          <div class="cart-empty-icon">
+            <i class="fas fa-cart-plus"></i>
+          </div>
+          <p class="cart-empty-text">Belum ada item</p>
+          <p class="cart-empty-hint">Scan barcode atau pilih produk</p>
+        </div>
+      </div>
+
+      <!-- Payment Section -->
+      <div class="payment-section">
+
+        <!-- Payment Method -->
+        <div class="payment-methods">
+          <label class="payment-method-label">Metode Pembayaran</label>
+          <div class="payment-method-group">
+            <button class="payment-btn active" data-method="cash" onclick="selectPayment('cash')">
+              <i class="fas fa-money-bill-wave"></i>
+              <span>Tunai</span>
+            </button>
+            <button class="payment-btn" data-method="qris" onclick="selectPayment('qris')">
+              <i class="fas fa-qrcode"></i>
+              <span>QRIS</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Quick Cash Buttons (visible when cash selected) -->
+        <div class="quick-cash" id="quickCash">
+          <label class="quick-cash-label">Nominal Cepat</label>
+          <div class="quick-cash-btns">
+            <button class="cash-btn" onclick="setCash(10000, this)">Rp 10k</button>
+            <button class="cash-btn" onclick="setCash(20000, this)">Rp 20k</button>
+            <button class="cash-btn" onclick="setCash(50000, this)">Rp 50k</button>
+            <button class="cash-btn" onclick="setCash(100000, this)">Rp 100k</button>
+            <button class="cash-btn active" onclick="setCashExact(this)">Uang Pas</button>
+          </div>
+          <div class="cash-input-group">
+            <span class="cash-input-prefix">Rp</span>
+            <input
+              type="text"
+              id="cashInput"
+              class="cash-input"
+              placeholder="0"
+              inputmode="numeric"
+              oninput="formatCashInput(this)"
+            />
+          </div>
+        </div>
+
+        <!-- Summary -->
+        <div class="summary">
+          <div class="summary-row">
+            <span class="summary-label">Subtotal</span>
+            <span class="summary-value" id="subtotalDisplay">Rp 0</span>
+          </div>
+
+          <!-- === DISKON SECTION === -->
+          <div class="discount-section" id="discountSection">
+            <div class="discount-header" onclick="toggleDiscount()">
+              <div class="discount-header-left">
+                <i class="fas fa-tag"></i>
+                <span>Diskon</span>
+              </div>
+              <div class="discount-header-right">
+                <span id="discountStatus" class="discount-status">Belum ada</span>
+                <i class="fas fa-chevron-down discount-chevron" id="discountChevron"></i>
+              </div>
+            </div>
+            <div class="discount-body" id="discountBody">
+              <div class="discount-type-group">
+                <button class="discount-type-btn active" data-dtype="nominal" onclick="selectDiscountType('nominal')">Rp</button>
+                <button class="discount-type-btn" data-dtype="percent" onclick="selectDiscountType('percent')">%</button>
+              </div>
+              <div class="discount-input-group">
+                <span class="discount-input-prefix" id="discountPrefix">Rp</span>
+                <input
+                  type="text"
+                  id="discountInput"
+                  class="discount-input"
+                  placeholder="0"
+                  inputmode="numeric"
+                  oninput="formatDiscountInput(this)"
+                />
+                <span class="discount-input-suffix" id="discountSuffix" style="display:none">%</span>
+              </div>
+              <div class="discount-actions">
+                <button class="btn-discount-apply" onclick="applyDiscount()">Terapkan</button>
+                <button class="btn-discount-remove" onclick="removeDiscount()">Hapus</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="summary-row" id="discountRow" style="display:none">
+            <span class="summary-label discount-label">Diskon</span>
+            <span class="summary-value discount-value" id="discountDisplay">-Rp 0</span>
+          </div>
+
+          <div class="summary-divider"></div>
+          <div class="summary-row total">
+            <span class="summary-label">Total Akhir</span>
+            <span class="summary-value" id="totalDisplay">Rp 0</span>
+          </div>
+          <div class="summary-row change" id="changeRow" style="display:none">
+            <span class="summary-label change-label">Kembalian</span>
+            <span class="summary-value change-value" id="changeDisplay">Rp 0</span>
+          </div>
+        </div>
+
+        <!-- Pay Button -->
+        <button class="btn-pay" id="payBtn" onclick="processPayment()" disabled>
+          <i class="fas fa-check-circle"></i>
+          <span>Bayar</span>
+          <kbd class="pay-hint">F4</kbd>
+        </button>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ====== QRIS Modal ====== -->
+  <div class="modal-overlay" id="qrisModal">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <h3><i class="fas fa-qrcode"></i> Pembayaran QRIS</h3>
+        <button class="modal-close" onclick="closeQRIS()">&times;</button>
+      </div>
+      <div class="modal-body qris-body">
+        <div class="qris-loading" id="qrisLoading">
+          <div class="spinner-sm"></div>
+          <span>Memuat kode QR...</span>
+        </div>
+        <div class="qris-code" id="qrisCode">
+          <img id="qrisImage" src="" alt="QRIS Code" class="qris-image" style="display:none" />
+          <div class="qris-placeholder" id="qrisPlaceholder">
+            <i class="fas fa-qrcode"></i>
+          </div>
+        </div>
+        <div class="qris-merchant">
+          <i class="fas fa-store"></i>
+          <span>Gspro - SMK Jakarta Pusat 1</span>
+        </div>
+        <div class="qris-total">
+          <span class="qris-total-label">Total Pembayaran</span>
+          <span class="qris-total-value" id="qrisTotal">Rp 0</span>
+        </div>
+        <!-- Status Pembayaran -->
+        <div class="qris-status" id="qrisStatus">
+          <div class="qris-status-dot"></div>
+          <span>Menunggu pembayaran...</span>
+        </div>
+        <p class="qris-hint">Scan QRIS di atas menggunakan aplikasi e-wallet Anda</p>
+        <button class="qris-paid-btn" onclick="confirmQRIS()">
+          <i class="fas fa-check-circle"></i> Konfirmasi Pembayaran
+        </button>
+      </div>
+
+      <!-- ====== QRIS Success State ====== -->
+      <div class="qris-success" id="qrisSuccess" style="display:none">
+        <!-- Animated Green Checkmark -->
+        <div class="success-checkmark">
+          <div class="check-icon">
+            <span class="icon-line line-tip"></span>
+            <span class="icon-line line-long"></span>
+            <div class="icon-circle"></div>
+            <div class="icon-fix"></div>
+          </div>
+        </div>
+        <div class="qris-success-text">Pembayaran QRIS Berhasil!</div>
+        <p class="qris-success-subtext">Mengalihkan ke struk belanja...</p>
+        <div class="qris-success-spinner">
+          <div class="spinner-sm"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== Receipt Modal ====== -->
+  <div class="modal-overlay" id="receiptModal">
+    <div class="modal modal-receipt">
+      <div class="modal-header receipt-header">
+        <h3><i class="fas fa-receipt"></i> Struk Belanja</h3>
+        <button class="modal-close" onclick="closeReceipt()">&times;</button>
+      </div>
+
+      <!-- Receipt Card (printed area) -->
+      <div class="receipt-card-wrapper">
+        <div class="receipt-card" id="receiptCard">
+          <div class="rcpt-header">
+            <div class="rcpt-brand">Gspro</div>
+            <div class="rcpt-school">SMK Jakarta Pusat 1</div>
+            <div class="rcpt-invoice" id="rcptInvoice">#INV/20260722/GS/0001</div>
+            <div class="rcpt-date" id="rcptDate"></div>
+          </div>
+
+          <div class="rcpt-divider"></div>
+
+          <div class="rcpt-items" id="rcptItems">
+            <!-- Filled by JS -->
+          </div>
+
+          <div class="rcpt-divider"></div>
+
+          <div class="rcpt-summary" id="rcptSummary">
+            <!-- Filled by JS -->
+          </div>
+
+          <div class="rcpt-divider"></div>
+
+          <div class="rcpt-payment" id="rcptPayment">
+            <!-- Filled by JS -->
+          </div>
+
+          <div class="rcpt-footer">
+            <p>Terima kasih telah berbelanja!</p>
+            <p class="rcpt-footer-small">Barang yang sudah dibeli tidak dapat ditukar</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Paper size toggle -->
+      <div class="receipt-paper-options">
+        <label class="paper-option">
+          <input type="radio" name="paperSize" value="thermal-58" onchange="setPaperSize('thermal-58')">
+          <span>Thermal 58mm</span>
+        </label>
+        <label class="paper-option">
+          <input type="radio" name="paperSize" value="thermal-80" checked onchange="setPaperSize('thermal-80')">
+          <span>Thermal 80mm</span>
+        </label>
+        <label class="paper-option">
+          <input type="radio" name="paperSize" value="a4" onchange="setPaperSize('a4')">
+          <span>A4 / Letter</span>
+        </label>
+      </div>
+
+      <!-- WA Phone Input (hidden by default) -->
+      <div class="wa-input-wrapper" id="waInputWrapper" style="display:none">
+        <div class="wa-input-group">
+          <span class="wa-input-prefix"><i class="fas fa-phone"></i></span>
+          <input
+            type="text"
+            id="waPhoneInput"
+            class="wa-input"
+            placeholder="Contoh: 08123456789"
+            inputmode="numeric"
+          />
+        </div>
+        <div class="wa-input-actions">
+          <button class="btn-secondary btn-sm" onclick="closeWaInput()">Batal</button>
+          <button class="btn-wa btn-sm" onclick="confirmSendWa()">
+            <i class="fab fa-whatsapp"></i> Kirim
+          </button>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="modal-footer receipt-footer">
+        <button class="btn-secondary" onclick="finishReceipt()">
+          <i class="fas fa-check"></i> Selesai
+        </button>
+        <button class="btn-wa" onclick="sendWhatsApp()" id="btnSendWa">
+          <i class="fab fa-whatsapp"></i> Kirim WA
+        </button>
+        <button class="btn-primary" onclick="printReceipt()">
+          <i class="fas fa-print"></i> Cetak / PDF
+        </button>
+        <button class="btn-primary" onclick="newTransaction()">
+          <i class="fas fa-cart-plus"></i> Baru
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== Transaction History Modal ====== -->
+  <div class="modal-overlay" id="historyModal">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h3><i class="fas fa-clock-rotate"></i> Riwayat Transaksi</h3>
+        <button class="modal-close" onclick="closeHistory()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="history-toolbar">
+          <div class="history-search-wrapper">
+            <i class="fas fa-search"></i>
+            <input type="text" id="historySearch" class="history-search" placeholder="Cari invoice..." oninput="filterHistory()" />
+          </div>
+          <button class="btn-secondary btn-sm" onclick="refreshHistory()">
+            <i class="fas fa-rotate"></i> Muat Ulang
+          </button>
+        </div>
+        <div class="history-loading" id="historyLoading">
+          <div class="spinner-sm"></div>
+          <span>Memuat riwayat...</span>
+        </div>
+        <div class="history-table-wrapper" id="historyTableWrapper" style="display:none">
+          <table class="history-table">
+            <thead>
+              <tr>
+                <th>Invoice</th>
+                <th>Tanggal</th>
+                <th>Total</th>
+                <th>Bayar</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="historyBody">
+              <!-- Filled by JS -->
+            </tbody>
+          </table>
+          <div class="history-empty" id="historyEmpty" style="display:none">
+            <i class="fas fa-inbox"></i>
+            <p>Belum ada transaksi</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== Product Management Modal (CRUD) ====== -->
+  <div class="modal-overlay" id="productModal">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h3><i class="fas fa-boxes-stacked"></i> Kelola Produk</h3>
+        <button class="modal-close" onclick="closeProductModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="product-mgmt-toolbar">
+          <button class="btn-primary btn-sm" onclick="openAddProduct()">
+            <i class="fas fa-plus"></i> Tambah Produk Baru
+          </button>
+          <div class="product-mgmt-search-wrapper">
+            <i class="fas fa-search"></i>
+            <input type="text" id="productMgmtSearch" class="product-mgmt-search" placeholder="Cari produk..." oninput="filterProductMgmt()" />
+          </div>
+          <button class="btn-secondary btn-sm" onclick="loadProductList()">
+            <i class="fas fa-rotate"></i> Muat Ulang
+          </button>
+        </div>
+        <div class="product-mgmt-loading" id="productMgmtLoading">
+          <div class="spinner-sm"></div>
+          <span>Memuat produk...</span>
+        </div>
+        <div class="product-mgmt-table-wrapper" id="productMgmtTableWrapper" style="display:none">
+          <table class="product-mgmt-table">
+            <thead>
+              <tr>
+                <th>Gambar</th>
+                <th>Nama Produk</th>
+                <th>Kategori</th>
+                <th>Harga</th>
+                <th>Stok</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="productMgmtBody">
+              <!-- Filled by JS -->
+            </tbody>
+          </table>
+          <div class="product-mgmt-empty" id="productMgmtEmpty" style="display:none">
+            <i class="fas fa-box-open"></i>
+            <p>Belum ada produk</p>
+            <button class="btn-primary btn-sm" onclick="openAddProduct()">
+              <i class="fas fa-plus"></i> Tambah Produk Pertama
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== Product Form Sub-Modal (Add/Edit) ====== -->
+  <div class="modal-overlay" id="productFormModal">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <h3 id="productFormTitle"><i class="fas fa-plus-circle"></i> Tambah Produk Baru</h3>
+        <button class="modal-close" onclick="closeProductForm()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="productForm" onsubmit="event.preventDefault(); saveProductForm();" enctype="multipart/form-data">
+          <div class="form-group">
+            <label class="form-label" for="pfBarcode">Barcode <span class="text-danger">*</span></label>
+            <input type="text" id="pfBarcode" class="form-input" placeholder="Masukkan barcode" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="pfName">Nama Produk <span class="text-danger">*</span></label>
+            <input type="text" id="pfName" class="form-input" placeholder="Masukkan nama produk" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="pfCategory">Kategori</label>
+            <select id="pfCategory" class="form-input form-select">
+              <option value="">Pilih kategori...</option>
+              <% categories.forEach(cat => { %>
+                <option value="<%= cat %>"><%= cat %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label class="form-label" for="pfPrice">Harga (Rp) <span class="text-danger">*</span></label>
+              <input type="text" id="pfPrice" class="form-input" placeholder="0" inputmode="numeric" oninput="formatCurrencyInput(this)" required />
+            </div>
+            <div class="form-group flex-1">
+              <label class="form-label" for="pfStock">Stok <span class="text-danger">*</span></label>
+              <input type="number" id="pfStock" class="form-input" placeholder="0" min="0" required />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="productImage">Gambar Produk</label>
+            <div class="file-input-wrapper">
+              <input type="file" id="productImage" name="image" accept="image/*" class="form-input form-file-input" onchange="previewFileInput(this)" />
+              <div class="file-input-preview" id="filePreview" style="display:none">
+                <img id="filePreviewImg" src="" alt="Preview" />
+                <button type="button" class="file-preview-remove" onclick="clearFileInput()">
+                  <i class="fas fa-xmark"></i>
+                </button>
+              </div>
+            </div>
+            <span class="form-hint">Format: JPG, PNG, GIF. Maks: 2MB</span>
+          </div>
+          <input type="hidden" id="pfEditId" value="" />
+          <div class="form-actions">
+            <button type="button" class="btn-secondary" onclick="closeProductForm()">Batal</button>
+            <button type="submit" class="btn-primary" id="pfSubmitBtn">
+              <i class="fas fa-save"></i> <span id="pfSubmitText">Simpan</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== Income Report Modal ====== -->
+  <div class="modal-overlay" id="incomeModal">
+    <div class="modal modal-income">
+      <div class="modal-header">
+        <h3><i class="fas fa-chart-line"></i> Laporan Pendapatan</h3>
+        <button class="modal-close" onclick="closeIncomeModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+
+        <!-- Tab Navigation -->
+        <div class="income-tabs">
+          <button class="income-tab active" data-period="daily" onclick="switchIncomeTab('daily')">
+            <i class="fas fa-calendar-day"></i> Harian
+          </button>
+          <button class="income-tab" data-period="monthly" onclick="switchIncomeTab('monthly')">
+            <i class="fas fa-calendar-alt"></i> Bulanan
+          </button>
+          <button class="income-tab" data-period="yearly" onclick="switchIncomeTab('yearly')">
+            <i class="fas fa-calendar"></i> Tahunan
+          </button>
+        </div>
+
+        <!-- Stat Cards -->
+        <div class="income-stats" id="incomeStats">
+          <div class="income-stat-card stat-revenue">
+            <div class="income-stat-icon"><i class="fas fa-money-bill-trend-up"></i></div>
+            <div class="income-stat-info">
+              <span class="income-stat-label">Total Pendapatan</span>
+              <span class="income-stat-value" id="incomeTotalRevenue">Rp 0</span>
+            </div>
+          </div>
+          <div class="income-stat-card stat-transactions">
+            <div class="income-stat-icon"><i class="fas fa-receipt"></i></div>
+            <div class="income-stat-info">
+              <span class="income-stat-label">Jumlah Transaksi</span>
+              <span class="income-stat-value" id="incomeTotalTx">0</span>
+            </div>
+          </div>
+          <div class="income-stat-card stat-payment">
+            <div class="income-stat-icon"><i class="fas fa-credit-card"></i></div>
+            <div class="income-stat-info">
+              <span class="income-stat-label">Pembayaran Terpopuler</span>
+              <span class="income-stat-value" id="incomeTopPayment">-</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Loading -->
+        <div class="income-loading" id="incomeLoading">
+          <div class="spinner-sm"></div>
+          <span>Memuat laporan...</span>
+        </div>
+
+        <!-- Detail Table -->
+        <div class="income-detail" id="incomeDetail" style="display:none">
+          <div class="income-detail-header">
+            <span><i class="fas fa-table"></i> <span id="incomeDetailTitle">Rincian Harian (30 hari)</span></span>
+          </div>
+          <div class="income-table-wrapper">
+            <table class="income-table">
+              <thead>
+                <tr>
+                  <th>Periode</th>
+                  <th>Transaksi</th>
+                  <th>Pendapatan</th>
+                </tr>
+              </thead>
+              <tbody id="incomeTableBody">
+                <!-- Filled by JS -->
+              </tbody>
+            </table>
+            <div class="income-empty" id="incomeEmpty" style="display:none">
+              <i class="fas fa-inbox"></i>
+              <p>Belum ada data transaksi</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== Itemized Daily Sales Report Modal (Rincian per Produk) ====== -->
+  <div class="modal-overlay" id="dailyItemsModal">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h3><i class="fas fa-chart-simple"></i> Rincian Pendapatan Tanggal <span id="dailyItemsDate"></span></h3>
+        <button class="modal-close" onclick="closeDailyItems()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Loading -->
+        <div class="daily-items-loading" id="dailyItemsLoading">
+          <div class="spinner-sm"></div>
+          <span>Memuat rincian penjualan...</span>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="daily-items-summary" id="dailyItemsSummary" style="display:none">
+          <div class="daily-items-stat total-revenue">
+            <i class="fas fa-money-bill-trend-up"></i>
+            <div class="daily-items-stat-info">
+              <span class="daily-items-stat-label">Total Omset</span>
+              <span class="daily-items-stat-value" id="dailyItemsTotalRevenue">Rp 0</span>
+            </div>
+          </div>
+          <div class="daily-items-stat total-qty">
+            <i class="fas fa-cubes"></i>
+            <div class="daily-items-stat-info">
+              <span class="daily-items-stat-label">Total Barang Terjual</span>
+              <span class="daily-items-stat-value" id="dailyItemsTotalQty">0</span>
+            </div>
+          </div>
+          <div class="daily-items-stat total-products">
+            <i class="fas fa-box"></i>
+            <div class="daily-items-stat-info">
+              <span class="daily-items-stat-label">Jenis Produk</span>
+              <span class="daily-items-stat-value" id="dailyItemsTotalProducts">0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Detail Table -->
+        <div class="daily-items-table-wrapper" id="dailyItemsTableWrapper" style="display:none">
+          <table class="daily-items-table">
+            <thead>
+              <tr>
+                <th>Nama Produk</th>
+                <th>Kategori</th>
+                <th>Terjual</th>
+                <th>Pendapatan</th>
+              </tr>
+            </thead>
+            <tbody id="dailyItemsTableBody">
+              <!-- Filled by JS -->
+            </tbody>
+            <!-- Summary Footer Row -->
+            <tfoot id="dailyItemsTableFoot" style="display:none">
+              <tr class="daily-items-footer">
+                <td colspan="2">
+                  <strong>Total Keseluruhan</strong>
+                </td>
+                <td class="items-footer-qty" id="dailyItemsFooterQty">0</td>
+                <td class="items-footer-revenue" id="dailyItemsFooterRevenue">Rp 0</td>
+              </tr>
+            </tfoot>
+          </table>
+          <div class="daily-items-empty" id="dailyItemsEmpty" style="display:none">
+            <i class="fas fa-inbox"></i>
+            <p>Tidak ada penjualan pada tanggal ini</p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" onclick="closeDailyItems()">
+          <i class="fas fa-check"></i> Tutup
+        </button>
+        <button class="btn-secondary" onclick="showTransactionsForDate()">
+          <i class="fas fa-receipt"></i> Lihat Riwayat Transaksi
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== Stock Adjustment Form Modal ====== -->
+  <div class="modal-overlay" id="stockAdjustModal">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <h3><i class="fas fa-clipboard-list"></i> Penyesuaian Stok</h3>
+        <button class="modal-close" onclick="closeStockAdjust()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="stockAdjustForm" onsubmit="event.preventDefault(); saveStockAdjustment();">
+          <div class="form-group">
+            <label class="form-label" for="saProduct">Pilih Produk <span class="text-danger">*</span></label>
+            <select id="saProduct" class="form-input form-select" required>
+              <option value="">-- Pilih Produk --</option>
+              <% products.forEach(p => { %>
+                <option value="<%= p.id %>" data-price="<%= p.price %>" data-stock="<%= p.stock %>">
+                  <%= p.name %> (Stok: <%= p.stock %>)
+                </option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="saQtyLost">Jumlah Berkurang <span class="text-danger">*</span></label>
+            <input type="number" id="saQtyLost" class="form-input" placeholder="0" min="1" required />
+            <span class="form-hint" id="saStockHint" style="display:none;font-size:11px;color:var(--gray-400);margin-top:4px;display:block">Stok tersedia: <span id="saStockAvailable">0</span></span>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="saReason">Alasan <span class="text-danger">*</span></label>
+            <select id="saReason" class="form-input form-select" required>
+              <option value="">-- Pilih Alasan --</option>
+              <option value="Hilang/Kemalingan">Hilang / Kemalingan</option>
+              <option value="Rusak/Kadaluarsa">Rusak / Kadaluarsa</option>
+              <option value="Selisih Hitung">Selisih Hitung</option>
+              <option value="Lainnya">Lainnya</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="saNote">Catatan Tambahan</label>
+            <textarea id="saNote" class="form-input" rows="3" placeholder="Opsional: deskripsi detail penyesuaian..." style="resize:vertical;font-family:inherit"></textarea>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn-secondary" onclick="closeStockAdjust()">Batal</button>
+            <button type="submit" class="btn-primary" id="saSubmitBtn">
+              <i class="fas fa-save"></i> Simpan Penyesuaian
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== Stock Adjustment History Modal ====== -->
+  <div class="modal-overlay" id="stockHistoryModal">
+    <div class="modal modal-lg" style="max-width:780px">
+      <div class="modal-header">
+        <h3><i class="fas fa-chart-simple"></i> Riwayat Stok Hilang &amp; Rusak</h3>
+        <button class="modal-close" onclick="closeStockHistory()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Summary Card -->
+        <div class="stock-loss-summary">
+          <div class="stock-loss-card">
+            <div class="stock-loss-card-icon">
+              <i class="fas fa-money-bill-wave"></i>
+            </div>
+            <div class="stock-loss-card-info">
+              <span class="stock-loss-card-label">Total Estimasi Kerugian</span>
+              <span class="stock-loss-card-value" id="stockTotalLoss">Rp 0</span>
+            </div>
+          </div>
+          <div class="stock-loss-card">
+            <div class="stock-loss-card-icon" style="background:var(--danger-light);color:var(--danger)">
+              <i class="fas fa-cubes"></i>
+            </div>
+            <div class="stock-loss-card-info">
+              <span class="stock-loss-card-label">Total Item Berkurang</span>
+              <span class="stock-loss-card-value" id="stockTotalItems">0</span>
+            </div>
+          </div>
+          <div class="stock-loss-card">
+            <div class="stock-loss-card-icon" style="background:var(--warning-light);color:#d97706">
+              <i class="fas fa-list"></i>
+            </div>
+            <div class="stock-loss-card-info">
+              <span class="stock-loss-card-label">Total Kejadian</span>
+              <span class="stock-loss-card-value" id="stockTotalEvents">0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Loading -->
+        <div class="stock-history-loading" id="stockHistoryLoading">
+          <div class="spinner-sm"></div>
+          <span>Memuat riwayat...</span>
+        </div>
+
+        <!-- Table -->
+        <div class="stock-history-table-wrapper" id="stockHistoryTableWrapper" style="display:none">
+          <table class="stock-history-table">
+            <thead>
+              <tr>
+                <th>Tanggal</th>
+                <th>Nama Produk</th>
+                <th>Qty</th>
+                <th>Alasan</th>
+                <th>Catatan</th>
+                <th>Estimasi Kerugian</th>
+              </tr>
+            </thead>
+            <tbody id="stockHistoryBody">
+              <!-- Filled by JS -->
+            </tbody>
+          </table>
+          <div class="stock-history-empty" id="stockHistoryEmpty" style="display:none">
+            <i class="fas fa-inbox"></i>
+            <p>Belum ada data penyesuaian stok</p>
+            <button class="btn-primary btn-sm" onclick="closeStockHistory();openStockAdjustment()">
+              <i class="fas fa-plus"></i> Catat Penyesuaian Baru
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeStockHistory()">
+          <i class="fas fa-check"></i> Tutup
+        </button>
+        <button class="btn-primary" onclick="closeStockHistory();openStockAdjustment()">
+          <i class="fas fa-plus"></i> Catat Penyesuaian Baru
+        </button>
+        <button class="btn-secondary" onclick="loadStockAdjustments()">
+          <i class="fas fa-rotate"></i> Muat Ulang
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== Custom Confirmation Modal (Clear Cart) ====== -->
+  <div class="modal-overlay" id="confirmClearModal">
+    <div class="modal modal-confirm">
+      <div class="confirm-icon">
+        <div class="confirm-icon-circle">
+          <i class="fas fa-trash-can"></i>
+        </div>
+      </div>
+      <h3 class="confirm-title">Hapus Keranjang?</h3>
+      <p class="confirm-text">Apakah Anda yakin ingin menghapus semua item di keranjang? Tindakan ini tidak dapat dibatalkan.</p>
+      <div class="confirm-actions">
+        <button class="btn-confirm-cancel" id="confirmClearCancel" onclick="closeConfirmClear()">
+          <i class="fas fa-xmark"></i> Batal
+        </button>
+        <button class="btn-confirm-danger" id="confirmClearProceed" onclick="executeClearCart()">
+          <i class="fas fa-trash-can"></i> Ya, Hapus Semua!
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== Loading Overlay ====== -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-spinner">
+      <div class="spinner"></div>
+      <p>Memproses pembayaran...</p>
+    </div>
+  </div>
+
+  <!-- Toast notification JS -->
+  <script>
+    function showToast(message, type = 'success') {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toastMessage');
+      toastMsg.textContent = message;
+      toast.className = 'toast show ' + type;
+      setTimeout(() => {
+        toast.className = 'toast';
+      }, 3000);
+    }
+  </script>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
