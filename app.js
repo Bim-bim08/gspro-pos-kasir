@@ -52,8 +52,11 @@ app.use((err, req, res, next) => {
   res.status(500).json({ success: false, message: 'Terjadi kesalahan server', error: err.message });
 });
 
-app.listen(PORT, () => {
-  console.log(`✅ Gspro POS Server berjalan di http://localhost:${PORT}`);
-});
+// Jalankan server hanya di lingkungan lokal (bukan Vercel/Production)
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`✅ Gspro POS Server berjalan di http://localhost:${PORT}`);
+  });
+}
 
 module.exports = app;
