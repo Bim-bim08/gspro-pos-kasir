@@ -7,14 +7,14 @@
 const MOCK_CATEGORIES = ['Makanan', 'Minuman', 'Snack'];
 
 const MOCK_PRODUCTS = [
-  { id: 1, barcode: 'MOCK001', name: 'Nasi Goreng',   category: 'Makanan',  price: 15000, stock: 20, image_url: '/images/nasgor.jpg' },
-  { id: 2, barcode: 'MOCK002', name: 'Mie Ayam',      category: 'Makanan',  price: 12000, stock: 15, image_url: '/images/mieayam.jpg' },
-  { id: 3, barcode: 'MOCK003', name: 'Aqua 600ml',    category: 'Minuman',  price:  3000, stock: 50, image_url: '/images/aqua.jpg' },
-  { id: 4, barcode: 'MOCK004', name: 'Es Teh Manis',  category: 'Minuman',  price:  5000, stock: 40, image_url: '/images/esteh.jpg' },
-  { id: 5, barcode: 'MOCK005', name: 'Kopi Susu',     category: 'Minuman',  price:  8000, stock: 30, image_url: '/images/kopisusu.jpg' },
-  { id: 6, barcode: 'MOCK006', name: 'Chitato 68g',   category: 'Snack',    price:  8500, stock: 25, image_url: '/images/chitato.jpg' },
-  { id: 7, barcode: 'MOCK007', name: 'Oreo 133g',     category: 'Snack',    price: 12000, stock: 20, image_url: '/images/oreo.jpg' },
-  { id: 8, barcode: 'MOCK008', name: 'Silverqueen',   category: 'Snack',    price: 15000, stock: 18, image_url: '/images/silverqueen.jpg' },
+  { id: 1, barcode: 'MOCK001', name: 'Nasi Goreng',   category: 'Makanan',  price: 15000, stock: 20, image_url: '/images/nasgor.jpg.jfif' },
+  { id: 2, barcode: 'MOCK002', name: 'Mie Ayam',      category: 'Makanan',  price: 12000, stock: 15, image_url: '/images/mie Ayam.jfif' },
+  { id: 3, barcode: 'MOCK003', name: 'Aqua 600ml',    category: 'Minuman',  price:  3000, stock: 50, image_url: '/images/aqua.jfif' },
+  { id: 4, barcode: 'MOCK004', name: 'Es Teh Manis',  category: 'Minuman',  price:  5000, stock: 40, image_url: '/images/esteh.jpg.jfif' },
+  { id: 5, barcode: 'MOCK005', name: 'Kopi Susu',     category: 'Minuman',  price:  8000, stock: 30, image_url: '/images/kopisusu.jpg.jfif' },
+  { id: 6, barcode: 'MOCK006', name: 'Chitato 68g',   category: 'Snack',    price:  8500, stock: 25, image_url: '/images/chitato.jpg.jfif' },
+  { id: 7, barcode: 'MOCK007', name: 'Oreo 133g',     category: 'Snack',    price: 12000, stock: 20, image_url: '/images/oreo.jpg.jfif' },
+  { id: 8, barcode: 'MOCK008', name: 'Silverqueen',   category: 'Snack',    price: 15000, stock: 18, image_url: '/images/silverqueen.jpg.jfif' },
 ];
 
 // Transaksi contoh untuk demo (beberapa hari terakhir)
