@@ -23,7 +23,7 @@ async function generateInvoice() {
 
 // POST /api/transactions - Proses pembayaran
 router.post('/', async (req, res) => {
-  // Mode DB_FALLBACK: kembalikan respon sukses dummy
+  // Mode DB_FALLBACK: proses transaksi dengan data mock + kurangi stok
   if (isDbFallback()) {
     const { items, payment_method, cash_paid, discount_type, discount_value, discount_amount } = req.body;
 
@@ -31,7 +31,7 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Keranjang belanja kosong' });
     }
 
-    // Hitung subtotal dari mock data
+    // Hitung subtotal dari mock data + validasi stok
     let subtotal = 0;
     const itemDetails = [];
     for (const item of items) {
@@ -40,9 +40,26 @@ router.post('/', async (req, res) => {
         return res.status(400).json({ success: false, message: `Produk ID ${item.product_id} tidak ditemukan` });
       }
       const qty = parseInt(item.qty) || 1;
+
+      // Pastikan stok tidak negatif
+      if (product.stock < qty) {
+        return res.status(400).json({
+          success: false,
+          message: `Stok ${product.name} tidak mencukupi (tersisa: ${product.stock})`
+        });
+      }
+
       const itemSubtotal = product.price * qty;
       subtotal += itemSubtotal;
       itemDetails.push({ product_id: product.id, product_name: product.name, qty, price: product.price, subtotal: itemSubtotal });
+    }
+
+    // Kurangi stok setelah validasi berhasil
+    for (const detail of itemDetails) {
+      const product = MOCK_PRODUCTS.find(p => p.id === detail.product_id);
+      if (product) {
+        product.stock = Math.max(0, product.stock - detail.qty);
+      }
     }
 
     const discAmount = Math.round((parseFloat(discount_amount) || 0) * 100) / 100;

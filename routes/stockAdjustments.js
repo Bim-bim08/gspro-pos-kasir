@@ -9,7 +9,7 @@ const { MOCK_STOCK_ADJUSTMENTS, MOCK_PRODUCTS } = require('../fallbackData');
 // Body: { product_id, qty_lost, reason, note }
 // ============================================================
 router.post('/', async (req, res) => {
-  // Mode DB_FALLBACK: kembalikan respon sukses dummy
+  // Mode DB_FALLBACK: proses penyesuaian stok dengan data mock + kurangi stok
   if (isDbFallback()) {
     const { product_id, qty_lost, reason, note } = req.body;
     const product = MOCK_PRODUCTS.find(p => p.id === parseInt(product_id));
@@ -20,6 +20,18 @@ router.post('/', async (req, res) => {
     if (!qty || qty <= 0) {
       return res.status(400).json({ success: false, message: 'Jumlah berkurang harus lebih dari 0' });
     }
+
+    // Pastikan stok tidak negatif
+    if (product.stock < qty) {
+      return res.status(400).json({
+        success: false,
+        message: `Stok ${product.name} tidak mencukupi (tersisa: ${product.stock}, akan dikurangi: ${qty})`
+      });
+    }
+
+    // Kurangi stok
+    product.stock = Math.max(0, product.stock - qty);
+
     const estimatedLoss = qty * parseFloat(product.price);
     return res.status(201).json({
       success: true,
