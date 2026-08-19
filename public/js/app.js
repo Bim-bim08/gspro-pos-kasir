@@ -1872,16 +1872,23 @@ async function saveStockAdjustment() {
       showToast(result.message);
       closeStockAdjust();
 
-      // Simpan penyesuaian stok ke localStorage (demo mode)
       if (isDemoMode()) {
+        // 1) Simpan record penyesuaian ke localStorage
         appendAdjustmentToLS(result.data);
-        // Kurangi stok produk di localStorage langsung
+        // 2) Kurangi stok produk di localStorage langsung
         updateProductStockInLS(parseInt(productId), -qtyLost);
-        // Sync ke server agar stok & riwayat penyesuaian up-to-date
+        // 3) Update grid UI langsung dari localStorage (tanpa HTTP round-trip)
+        const updatedProducts = loadProductsFromLocalStorage();
+        if (updatedProducts) {
+          updateProductGrid(updatedProducts);
+        }
+        // 4) Sync ke server di background agar laporan tetap akurat
         syncAllDemoDataToServer();
+      } else {
+        // Non-demo mode: fetch dari server
+        fetchProducts();
       }
 
-      fetchProducts();
       loadDailyReport();
     } else {
       showToast(result.message || 'Gagal menyimpan penyesuaian stok', 'error');
