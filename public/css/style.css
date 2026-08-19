@@ -926,6 +926,22 @@ body {
   font-weight: 700;
   font-size: 16px;
 }
+.summary-row.change .change-value.change-insufficient {
+  color: var(--danger);
+  animation: pulse-warning 1.2s ease-in-out infinite;
+}
+.summary-row.change .change-value.change-sufficient {
+  color: var(--success);
+}
+.summary-row.change.change-warning {
+  background: var(--danger-light, rgba(239,68,68,0.08));
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+@keyframes pulse-warning {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
 
 /* Discount Row */
 .summary-row .discount-label {

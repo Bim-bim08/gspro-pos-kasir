@@ -250,4 +250,39 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// POST /api/products/sync - Sinkronkan data produk dari client ke server (mode demo)
+// Digunakan saat localStorage punya data lebih baru dari server
+router.post('/sync', async (req, res) => {
+  if (!isDbFallback()) {
+    return res.status(400).json({ success: false, message: 'Sinkronisasi hanya berlaku untuk mode demo' });
+  }
+
+  const { products } = req.body;
+  if (!products || !Array.isArray(products) || products.length === 0) {
+    return res.status(400).json({ success: false, message: 'Data produk tidak valid' });
+  }
+
+  // Update MOCK_PRODUCTS di memori server
+  MOCK_PRODUCTS.length = 0;
+  products.forEach(p => {
+    MOCK_PRODUCTS.push({
+      id: p.id,
+      barcode: p.barcode || `MOCK${String(p.id).padStart(3, '0')}`,
+      name: p.name,
+      category: p.category || 'Umum',
+      price: Number(p.price) || 0,
+      stock: Number(p.stock) || 0,
+      image_url: p.image_url || null
+    });
+  });
+
+  // Update MOCK_CATEGORIES berdasarkan produk yang tersinkron
+  const cats = new Set(MOCK_PRODUCTS.map(p => p.category));
+  MOCK_CATEGORIES.length = 0;
+  cats.forEach(c => MOCK_CATEGORIES.push(c));
+
+  console.log(`🔄 Server products disinkronkan dari localStorage (${MOCK_PRODUCTS.length} produk)`);
+  res.json({ success: true, message: `${MOCK_PRODUCTS.length} produk berhasil disinkronkan` });
+});
+
 module.exports = router;

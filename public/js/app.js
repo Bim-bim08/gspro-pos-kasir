@@ -17,6 +17,146 @@ const state = {
   }
 };
 
+// ====== LOCALSTORAGE SYNC (Demo Mode) ======
+const LS_KEYS = {
+  products: 'gspro_pos_products',
+  transactions: 'gspro_pos_transactions',
+  transactionDetails: 'gspro_pos_transaction_details',
+  stockAdjustments: 'gspro_pos_stock_adjustments'
+};
+
+function isDemoMode() {
+  return window.IS_DEMO === true;
+}
+
+// --- Generic save / load ---
+function saveToLS(key, data) {
+  if (!isDemoMode()) return;
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (e) {
+    console.warn('Gagal menyimpan ke localStorage:', key, e);
+  }
+}
+
+function loadFromLS(key) {
+  if (!isDemoMode()) return null;
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    console.warn('Gagal memuat dari localStorage:', key, e);
+    return null;
+  }
+}
+
+// --- Products ---
+function saveProductsToLocalStorage(products) {
+  saveToLS(LS_KEYS.products, products);
+}
+
+function loadProductsFromLocalStorage() {
+  return loadFromLS(LS_KEYS.products);
+}
+
+// Update stok produk tertentu di localStorage (langsung, tanpa fetch)
+function updateProductStockInLS(productId, qtyChange) {
+  const products = loadFromLS(LS_KEYS.products);
+  if (!products) return;
+  const product = products.find(p => p.id === productId);
+  if (product) {
+    product.stock = Math.max(0, product.stock + qtyChange);
+    saveToLS(LS_KEYS.products, products);
+  }
+}
+
+// --- Transactions ---
+function saveTransactionsToLocalStorage(transactions) {
+  saveToLS(LS_KEYS.transactions, transactions);
+}
+
+function loadTransactionsFromLocalStorage() {
+  return loadFromLS(LS_KEYS.transactions);
+}
+
+// Tambah 1 transaksi baru ke array di localStorage
+function appendTransactionToLS(txData) {
+  const list = loadFromLS(LS_KEYS.transactions) || [];
+  list.push(txData);
+  saveToLS(LS_KEYS.transactions, list);
+}
+
+// --- Transaction Details ---
+function saveTransactionDetailsToLocalStorage(details) {
+  saveToLS(LS_KEYS.transactionDetails, details);
+}
+
+function loadTransactionDetailsFromLocalStorage() {
+  return loadFromLS(LS_KEYS.transactionDetails);
+}
+
+// Simpan detail 1 transaksi baru
+function appendTransactionDetailsToLS(txId, items) {
+  const all = loadFromLS(LS_KEYS.transactionDetails) || {};
+  all[txId] = items.map((d, idx) => ({
+    id: idx + 1,
+    product_id: d.product_id,
+    product_name: d.product_name,
+    qty: d.qty,
+    price: d.price,
+    subtotal: d.subtotal
+  }));
+  saveToLS(LS_KEYS.transactionDetails, all);
+}
+
+// --- Stock Adjustments ---
+function saveAdjustmentsToLocalStorage(adjustments) {
+  saveToLS(LS_KEYS.stockAdjustments, adjustments);
+}
+
+function loadAdjustmentsFromLocalStorage() {
+  return loadFromLS(LS_KEYS.stockAdjustments);
+}
+
+function appendAdjustmentToLS(adjData) {
+  const list = loadFromLS(LS_KEYS.stockAdjustments) || [];
+  list.push(adjData);
+  saveToLS(LS_KEYS.stockAdjustments, list);
+}
+
+// --- Sync ke server ---
+async function syncAllDemoDataToServer() {
+  if (!isDemoMode()) return;
+  try {
+    await fetch('/api/demo/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        products: loadFromLS(LS_KEYS.products) || [],
+        transactions: loadFromLS(LS_KEYS.transactions) || [],
+        transactionDetails: loadFromLS(LS_KEYS.transactionDetails) || {},
+        stockAdjustments: loadFromLS(LS_KEYS.stockAdjustments) || []
+      })
+    });
+  } catch (e) {
+    console.warn('Gagal sinkronisasi data demo ke server:', e);
+  }
+}
+
+// Legacy alias (masih dipanggil di beberapa tempat)
+async function syncServerProducts(products) {
+  if (!isDemoMode() || !products) return;
+  try {
+    await fetch('/api/products/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ products })
+    });
+  } catch (e) {
+    console.warn('Gagal sinkronisasi produk ke server:', e);
+  }
+}
+
 // ====== DOM REFS ======
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
@@ -256,12 +396,27 @@ function formatCashInput(el) {
 
 function updateChange(total) {
   const cash = state.cashInput;
-  if (cash > 0 && cash >= total) {
-    const change = cash - total;
-    changeDisplay.textContent = `Rp ${change.toLocaleString('id-ID')}`;
-    changeRow.style.display = 'flex';
+  if (cash > 0) {
+    if (cash >= total) {
+      // Uang cukup atau lebih — tampilkan kembalian normal
+      const change = cash - total;
+      changeDisplay.textContent = `Rp ${change.toLocaleString('id-ID')}`;
+      changeDisplay.classList.remove('change-insufficient');
+      changeDisplay.classList.add('change-sufficient');
+      changeRow.classList.remove('change-warning');
+      changeRow.style.display = 'flex';
+    } else {
+      // Uang kurang — tampilkan selisih dengan peringatan
+      const deficit = total - cash;
+      changeDisplay.textContent = `Kurang Rp ${deficit.toLocaleString('id-ID')}`;
+      changeDisplay.classList.remove('change-sufficient');
+      changeDisplay.classList.add('change-insufficient');
+      changeRow.classList.add('change-warning');
+      changeRow.style.display = 'flex';
+    }
   } else {
     changeRow.style.display = 'none';
+    changeRow.classList.remove('change-warning');
   }
 }
 
@@ -483,6 +638,37 @@ async function submitTransaction(skipLoading = false) {
     if (result.success) {
       state.lastTransaction = result.data;
       loadingOverlay.classList.remove('show');
+
+      // Simpan transaksi & detail ke localStorage (demo mode)
+      if (isDemoMode()) {
+        // Simpan record transaksi ke array
+        const txRecord = {
+          id: result.data.transaction_id,
+          invoice_number: result.data.invoice_number,
+          payment_method: result.data.payment_method,
+          subtotal: result.data.subtotal,
+          discount_type: result.data.discount_type,
+          discount_value: result.data.discount_value,
+          discount_amount: result.data.discount_amount,
+          total_amount: result.data.total_amount,
+          cash_paid: result.data.cash_paid,
+          change_amount: result.data.change_amount,
+          created_at: new Date().toISOString()
+        };
+        appendTransactionToLS(txRecord);
+
+        // Simpan detail transaksi
+        appendTransactionDetailsToLS(result.data.transaction_id, result.data.items);
+
+        // Kurangi stok produk di localStorage langsung (tanpa harus fetch)
+        result.data.items.forEach(item => {
+          updateProductStockInLS(item.product_id, -item.qty);
+        });
+
+        // Sync seluruh data ke server agar laporan & riwayat up-to-date
+        syncAllDemoDataToServer();
+      }
+
       showReceipt(result.data);
       // Refresh produk agar badge stok terbaru segera tampil
       fetchProducts();
@@ -586,6 +772,8 @@ async function fetchProducts() {
     const result = await res.json();
     if (result.success) {
       updateProductGrid(result.data);
+      // Simpan ke localStorage agar tetap persist di mode demo
+      saveProductsToLocalStorage(result.data);
     }
   } catch (err) {
     console.error('Error refreshing products:', err);
@@ -1683,6 +1871,16 @@ async function saveStockAdjustment() {
     if (result.success) {
       showToast(result.message);
       closeStockAdjust();
+
+      // Simpan penyesuaian stok ke localStorage (demo mode)
+      if (isDemoMode()) {
+        appendAdjustmentToLS(result.data);
+        // Kurangi stok produk di localStorage langsung
+        updateProductStockInLS(parseInt(productId), -qtyLost);
+        // Sync ke server agar stok & riwayat penyesuaian up-to-date
+        syncAllDemoDataToServer();
+      }
+
       fetchProducts();
       loadDailyReport();
     } else {
@@ -1790,4 +1988,53 @@ document.addEventListener('DOMContentLoaded', () => {
   searchInput.focus();
   updatePayButton();
   loadDailyReport();
+
+  // Sinkronisasi localStorage untuk mode demo — localStorage = single source of truth
+  if (isDemoMode()) {
+    const savedProducts = loadProductsFromLocalStorage();
+    const savedTransactions = loadTransactionsFromLocalStorage();
+    const savedDetails = loadTransactionDetailsFromLocalStorage();
+    const savedAdjustments = loadAdjustmentsFromLocalStorage();
+
+    if (savedProducts && savedProducts.length > 0) {
+      // Ada data tersimpan — sync SEMUA data ke server agar laporan & riwayat akurat
+      syncAllDemoDataToServer();
+      updateProductGrid(savedProducts);
+    } else {
+      // Pertama kali — ambil data dari kartu yang di-render server, simpan ke localStorage
+      const cards = document.querySelectorAll('.product-card');
+      const products = [];
+      cards.forEach(card => {
+        products.push({
+          id: parseInt(card.dataset.id),
+          name: card.querySelector('.product-name').textContent,
+          category: card.dataset.category,
+          price: parseInt(card.querySelector('.product-price').textContent.replace(/[^\d]/g, '')),
+          stock: parseInt(card.dataset.stock),
+          image_url: card.querySelector('img') ? card.querySelector('img').src : null,
+          barcode: ''
+        });
+      });
+      saveProductsToLocalStorage(products);
+      // Simpan juga transaksi awal dari server ke localStorage
+      fetch('/api/transactions').then(r => r.json()).then(result => {
+        if (result.success && result.data) {
+          saveTransactionsToLocalStorage(result.data);
+          // Ambil detail untuk setiap transaksi
+          result.data.forEach(tx => {
+            fetch(`/api/transactions/${tx.id}`).then(r => r.json()).then(detailResult => {
+              if (detailResult.success && detailResult.data && detailResult.data.items) {
+                appendTransactionDetailsToLS(tx.id, detailResult.data.items);
+              }
+            }).catch(() => {});
+          });
+        }
+      }).catch(() => {});
+      fetch('/api/stock-adjustments').then(r => r.json()).then(result => {
+        if (result.success && result.data) {
+          saveAdjustmentsToLocalStorage(result.data);
+        }
+      }).catch(() => {});
+    }
+  }
 });

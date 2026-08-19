@@ -86,6 +86,34 @@ router.post('/', async (req, res) => {
     changeAmount = changeAmount ?? 0;
 
     const txId = MOCK_TRANSACTIONS.length + 100;
+    const txDate = new Date().toISOString();
+
+    // Simpan transaksi ke array mock agar riwayat & laporan tampil
+    const txRecord = {
+      id: txId,
+      invoice_number: invoiceNumber,
+      payment_method,
+      subtotal: Math.round(subtotal * 100) / 100,
+      discount_type: discType,
+      discount_value: discValue,
+      discount_amount: discAmount,
+      total_amount: Math.round(totalAmount * 100) / 100,
+      cash_paid: cashPaid,
+      change_amount: changeAmount,
+      created_at: txDate
+    };
+    MOCK_TRANSACTIONS.push(txRecord);
+
+    // Simpan detail transaksi per item
+    MOCK_TRANSACTION_DETAILS[txId] = itemDetails.map((d, idx) => ({
+      id: idx + 1,
+      product_id: d.product_id,
+      product_name: d.product_name,
+      qty: d.qty,
+      price: d.price,
+      subtotal: d.subtotal
+    }));
+
     return res.status(201).json({
       success: true,
       data: {

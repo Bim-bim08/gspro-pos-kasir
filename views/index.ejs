@@ -432,7 +432,7 @@
           <i class="fas fa-print"></i> Cetak / PDF
         </button>
         <button class="btn-primary" onclick="newTransaction()">
-          <i class="fas fa-cart-plus"></i> Baru
+          <i class="fas fa-cart-plus"></i> Transaksi Baru
         </button>
       </div>
     </div>
@@ -936,6 +936,7 @@
     }
   </script>
 
+  <script>window.IS_DEMO = <%= isDemo ? 'true' : 'false' %>;</script>
   <script src="/js/app.js"></script>
 </body>
 </html>

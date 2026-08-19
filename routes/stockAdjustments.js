@@ -33,18 +33,24 @@ router.post('/', async (req, res) => {
     product.stock = Math.max(0, product.stock - qty);
 
     const estimatedLoss = qty * parseFloat(product.price);
+    const adjId = MOCK_STOCK_ADJUSTMENTS.length + 100;
+    const adjRecord = {
+      id: adjId,
+      product_id: parseInt(product_id),
+      product_name: product.name,
+      product_price: parseFloat(product.price),
+      qty_lost: qty,
+      reason,
+      note: note || null,
+      created_at: new Date().toISOString(),
+      estimated_loss: Math.round(estimatedLoss * 100) / 100
+    };
+    MOCK_STOCK_ADJUSTMENTS.push(adjRecord);
+
     return res.status(201).json({
       success: true,
       message: `Penyesuaian stok untuk "${product.name}" berhasil dicatat (Demo Mode)`,
-      data: {
-        id: MOCK_STOCK_ADJUSTMENTS.length + 100,
-        product_id,
-        product_name: product.name,
-        qty_lost: qty,
-        reason,
-        note: note || null,
-        estimated_loss: Math.round(estimatedLoss * 100) / 100
-      }
+      data: adjRecord
     });
   }
 
