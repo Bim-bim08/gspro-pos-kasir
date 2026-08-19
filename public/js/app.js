@@ -1276,7 +1276,7 @@ async function loadProductList() {
         else if (p.stock <= 5) { stockClass = 'low'; stockLabel = `${p.stock} (menipis)`; }
 
         const imgHtml = p.image_url
-          ? `<img src="${p.image_url}" alt="${p.name}" class="mgmt-product-img" />`
+          ? `<img src="${p.image_url}" alt="${p.name}" class="mgmt-product-img" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" /><div class="mgmt-product-img-placeholder" style="display:none"><i class="fas fa-box-open"></i></div>`
           : `<div class="mgmt-product-img-placeholder"><i class="fas fa-box-open"></i></div>`;
 
         return `
