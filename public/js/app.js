@@ -834,6 +834,9 @@ function updateProductGrid(products) {
   if (totalEl) {
     totalEl.textContent = `${products.length} Produk`;
   }
+
+  // Sinkronkan dropdown produk di modal Penyesuaian Stok
+  renderSaProductOptions();
 }
 
 function closeReceipt() {
@@ -1805,11 +1808,32 @@ async function loadIncomeReport(period) {
 
 // ====== STOCK ADJUSTMENT FUNCTIONS ======
 
+// Render ulang opsi dropdown produk di modal Penyesuaian Stok
+// menggunakan data terkini dari kartu produk di halaman utama.
+function renderSaProductOptions() {
+  const select = document.getElementById('saProduct');
+  if (!select) return;
+
+  const cards = document.querySelectorAll('.product-card');
+  let html = '<option value="">-- Pilih Produk --</option>';
+
+  cards.forEach(card => {
+    const id = card.dataset.id;
+    const stock = parseInt(card.dataset.stock) || 0;
+    const name = card.querySelector('.product-name')?.textContent || '';
+    html += `<option value="${id}" data-stock="${stock}">${name} (Stok: ${stock})</option>`;
+  });
+
+  select.innerHTML = html;
+}
+
 function openStockAdjustment() {
   const modal = document.getElementById('stockAdjustModal');
   if (!modal) return;
   document.getElementById('stockAdjustForm').reset();
   document.getElementById('saStockHint').style.display = 'none';
+  // Selalu render ulang dropdown dengan data stok terkini
+  renderSaProductOptions();
   modal.classList.add('show');
   document.getElementById('saProduct').focus();
 }
