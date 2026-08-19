@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
+const { isDbFallback } = require('../db');
+const { MOCK_TRANSACTIONS, MOCK_PRODUCTS } = require('../fallbackData');
 
 // GET /api/reports/daily - Statistik penjualan hari ini
 router.get('/daily', async (req, res) => {
@@ -11,6 +13,26 @@ router.get('/daily', async (req, res) => {
     const month = String(today.getMonth() + 1).padStart(2, '0');
     const day = String(today.getDate()).padStart(2, '0');
     const dateStr = `${year}-${month}-${day}`;
+
+    // Mode DB_FALLBACK: hitung dari data mock
+    if (isDbFallback()) {
+      const todayTx = MOCK_TRANSACTIONS.filter(t => t.invoice_number.startsWith(`INV/${dateStr.replace(/-/g, '')}`));
+      const totalRevenue = todayTx.reduce((s, t) => s + t.total_amount, 0);
+      return res.json({
+        success: true,
+        data: {
+          date: dateStr,
+          total_transactions: todayTx.length,
+          total_revenue: Math.round(totalRevenue * 100) / 100,
+          recent_transactions: todayTx.slice(0, 5).map(t => ({
+            invoice_number: t.invoice_number,
+            total_amount: t.total_amount,
+            payment_method: t.payment_method,
+            created_at: t.created_at
+          }))
+        }
+      });
+    }
 
     // Hitung total omset dan jumlah transaksi hari ini (dengan timezone WIB)
     const [result] = await pool.query(
@@ -58,6 +80,32 @@ router.get('/daily', async (req, res) => {
 router.get('/income', async (req, res) => {
   try {
     const period = req.query.period || 'daily';
+
+    // Mode DB_FALLBACK: kembalikan data mock
+    if (isDbFallback()) {
+      const totalRevenue = MOCK_TRANSACTIONS.reduce((s, t) => s + t.total_amount, 0);
+      const topPayment = MOCK_TRANSACTIONS.reduce((acc, t) => {
+        acc[t.payment_method] = (acc[t.payment_method] || 0) + 1;
+        return acc;
+      }, {});
+      const topMethod = Object.entries(topPayment).sort((a, b) => b[1] - a[1])[0];
+      return res.json({
+        success: true,
+        data: {
+          summary: {
+            total_revenue: Math.round(totalRevenue * 100) / 100,
+            total_transactions: MOCK_TRANSACTIONS.length,
+            top_payment: topMethod ? { method: topMethod[0], count: topMethod[1], total: totalRevenue } : { method: '-', count: 0, total: 0 }
+          },
+          details: [{
+            label: new Date().toISOString().slice(0,10),
+            label_display: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }),
+            transaction_count: MOCK_TRANSACTIONS.length,
+            revenue: Math.round(totalRevenue * 100) / 100
+          }]
+        }
+      });
+    }
 
     let summaryQuery, detailQuery;
 
@@ -181,6 +229,35 @@ router.get('/daily-items', async (req, res) => {
 
     if (!date) {
       return res.status(400).json({ success: false, message: 'Parameter date wajib diisi' });
+    }
+
+    // Mode DB_FALLBACK: kembalikan data mock
+    if (isDbFallback()) {
+      const { MOCK_TRANSACTION_DETAILS } = require('../fallbackData');
+      const todayPrefix = `INV/${date.replace(/-/g, '')}`;
+      const dayTx = MOCK_TRANSACTIONS.filter(t => t.invoice_number.startsWith(todayPrefix));
+      const itemMap = {};
+      let totalOmset = 0;
+      for (const tx of dayTx) {
+        totalOmset += tx.total_amount;
+        const details = MOCK_TRANSACTION_DETAILS[tx.id] || [];
+        for (const d of details) {
+          if (!itemMap[d.product_id]) {
+            const product = MOCK_PRODUCTS.find(p => p.id === d.product_id);
+            itemMap[d.product_id] = { product_name: d.product_name, category: product ? product.category : 'Umum', total_qty: 0, total_revenue: 0 };
+          }
+          itemMap[d.product_id].total_qty += d.qty;
+          itemMap[d.product_id].total_revenue += d.subtotal;
+        }
+      }
+      const items = Object.values(itemMap).map(i => ({ ...i, total_revenue: Math.round(i.total_revenue * 100) / 100 }));
+      return res.json({
+        success: true,
+        items,
+        total_omset: Math.round(totalOmset * 100) / 100,
+        total_qty: items.reduce((s, i) => s + i.total_qty, 0),
+        total_jenis: items.length
+      });
     }
 
     // ============================================================

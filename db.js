@@ -32,6 +32,11 @@ console.log('');
 const pool = mysql.createPool(dbConfig);
 
 // ============================================
+// DB_FALLBACK — mode demo saat MySQL tidak tersedia
+// ============================================
+let _dbFallback = false;
+
+// ============================================
 // Uji Koneksi Database saat Startup
 // ============================================
 async function testConnection() {
@@ -75,6 +80,8 @@ async function testConnection() {
     console.error('');
     
     if (connection) connection.release();
+    _dbFallback = true;
+    console.warn('⚠️  DB_FALLBACK aktif — aplikasi berjalan tanpa database (mode demo)\n');
     return false;
   }
 }
@@ -88,4 +95,7 @@ testConnection().then(success => {
 });
 
 module.exports = pool;
+module.exports.pool = pool;
 module.exports.testConnection = testConnection;
+module.exports.isDbFallback = () => _dbFallback;
+module.exports.setDbFallback = (val) => { _dbFallback = !!val; };

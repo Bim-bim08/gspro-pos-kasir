@@ -4,6 +4,8 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const pool = require('../db');
+const { isDbFallback } = require('../db');
+const { MOCK_PRODUCTS, MOCK_CATEGORIES } = require('../fallbackData');
 
 // Konfigurasi multer untuk upload gambar
 const storage = multer.diskStorage({
@@ -53,6 +55,23 @@ function deleteOldImage(imagePath) {
 // GET /api/products - Ambil semua produk atau filter
 router.get('/', async (req, res) => {
   try {
+    // Mode DB_FALLBACK: kembalikan data mock
+    if (isDbFallback()) {
+      let products = [...MOCK_PRODUCTS];
+      const { category, search } = req.query;
+
+      if (category && category !== 'Semua') {
+        products = products.filter(p => p.category === category);
+      }
+      if (search) {
+        const q = search.toLowerCase();
+        products = products.filter(
+          p => p.name.toLowerCase().includes(q) || p.barcode.toLowerCase().includes(q)
+        );
+      }
+      return res.json({ success: true, data: products });
+    }
+
     const { category, search } = req.query;
     let query = 'SELECT * FROM products WHERE 1=1';
     const params = [];
@@ -80,6 +99,14 @@ router.get('/', async (req, res) => {
 // GET /api/products/barcode/:barcode - Cari berdasarkan barcode (MUST be before :id route)
 router.get('/barcode/:barcode', async (req, res) => {
   try {
+    if (isDbFallback()) {
+      const product = MOCK_PRODUCTS.find(p => p.barcode === req.params.barcode);
+      if (!product) {
+        return res.status(404).json({ success: false, message: 'Produk tidak ditemukan' });
+      }
+      return res.json({ success: true, data: product });
+    }
+
     const [products] = await pool.query(
       'SELECT * FROM products WHERE barcode = ?',
       [req.params.barcode]
@@ -96,6 +123,14 @@ router.get('/barcode/:barcode', async (req, res) => {
 // GET /api/products/:id
 router.get('/:id', async (req, res) => {
   try {
+    if (isDbFallback()) {
+      const product = MOCK_PRODUCTS.find(p => p.id === parseInt(req.params.id));
+      if (!product) {
+        return res.status(404).json({ success: false, message: 'Produk tidak ditemukan' });
+      }
+      return res.json({ success: true, data: product });
+    }
+
     const [products] = await pool.query(
       'SELECT * FROM products WHERE id = ?',
       [req.params.id]
@@ -112,6 +147,16 @@ router.get('/:id', async (req, res) => {
 // POST /api/products - Tambah produk baru (dengan upload gambar)
 router.post('/', upload.single('image'), async (req, res) => {
   try {
+    // Mode DB_FALLBACK: kembalikan respon sukses dummy
+    if (isDbFallback()) {
+      return res.status(201).json({
+        success: true,
+        message: 'Produk berhasil ditambahkan (Demo Mode)',
+        id: Date.now(),
+        image_url: null
+      });
+    }
+
     const { barcode, name, category, price, stock } = req.body;
     const image_url = req.file ? `/uploads/${req.file.filename}` : null;
 
@@ -132,6 +177,15 @@ router.post('/', upload.single('image'), async (req, res) => {
 // PUT /api/products/:id - Update produk (dengan upload gambar opsional)
 router.put('/:id', upload.single('image'), async (req, res) => {
   try {
+    // Mode DB_FALLBACK: kembalikan respon sukses dummy
+    if (isDbFallback()) {
+      return res.json({
+        success: true,
+        message: 'Produk berhasil diperbarui (Demo Mode)',
+        image_url: null
+      });
+    }
+
     const { barcode, name, category, price, stock } = req.body;
 
     // Ambil data produk lama untuk cek gambar
@@ -171,6 +225,14 @@ router.put('/:id', upload.single('image'), async (req, res) => {
 // DELETE /api/products/:id
 router.delete('/:id', async (req, res) => {
   try {
+    // Mode DB_FALLBACK: kembalikan respon sukses dummy
+    if (isDbFallback()) {
+      return res.json({
+        success: true,
+        message: 'Produk berhasil dihapus (Demo Mode)'
+      });
+    }
+
     // Ambil data produk untuk hapus gambar
     const [existing] = await pool.query(
       'SELECT image_url FROM products WHERE id = ?',

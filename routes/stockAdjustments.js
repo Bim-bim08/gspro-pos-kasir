@@ -1,12 +1,41 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
+const { isDbFallback } = require('../db');
+const { MOCK_STOCK_ADJUSTMENTS, MOCK_PRODUCTS } = require('../fallbackData');
 
 // ============================================================
 // POST /api/stock-adjustments - Catat penyesuaian stok
 // Body: { product_id, qty_lost, reason, note }
 // ============================================================
 router.post('/', async (req, res) => {
+  // Mode DB_FALLBACK: kembalikan respon sukses dummy
+  if (isDbFallback()) {
+    const { product_id, qty_lost, reason, note } = req.body;
+    const product = MOCK_PRODUCTS.find(p => p.id === parseInt(product_id));
+    if (!product) {
+      return res.status(404).json({ success: false, message: 'Produk tidak ditemukan' });
+    }
+    const qty = parseInt(qty_lost);
+    if (!qty || qty <= 0) {
+      return res.status(400).json({ success: false, message: 'Jumlah berkurang harus lebih dari 0' });
+    }
+    const estimatedLoss = qty * parseFloat(product.price);
+    return res.status(201).json({
+      success: true,
+      message: `Penyesuaian stok untuk "${product.name}" berhasil dicatat (Demo Mode)`,
+      data: {
+        id: MOCK_STOCK_ADJUSTMENTS.length + 100,
+        product_id,
+        product_name: product.name,
+        qty_lost: qty,
+        reason,
+        note: note || null,
+        estimated_loss: Math.round(estimatedLoss * 100) / 100
+      }
+    });
+  }
+
   const connection = await pool.getConnection();
   try {
     const { product_id, qty_lost, reason, note } = req.body;
@@ -96,6 +125,19 @@ router.post('/', async (req, res) => {
 // ============================================================
 router.get('/', async (req, res) => {
   try {
+    // Mode DB_FALLBACK: kembalikan data mock
+    if (isDbFallback()) {
+      return res.json({
+        success: true,
+        data: MOCK_STOCK_ADJUSTMENTS,
+        total_loss: MOCK_STOCK_ADJUSTMENTS.reduce((s, a) => s + a.estimated_loss, 0),
+        total: MOCK_STOCK_ADJUSTMENTS.length,
+        page: 1,
+        limit: 50,
+        total_pages: 1
+      });
+    }
+
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 50;
     const offset = (page - 1) * limit;

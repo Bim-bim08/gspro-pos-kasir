@@ -1,10 +1,21 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
+const { isDbFallback } = require('../db');
+const { MOCK_CATEGORIES, MOCK_PRODUCTS } = require('../fallbackData');
 
 // GET / - Halaman utama POS
 router.get('/', async (req, res) => {
   try {
+    // Jika dalam mode DB_FALLBACK, gunakan data mock
+    if (isDbFallback()) {
+      return res.render('index', {
+        title: 'Gspro - POS Kasir (Demo Mode)',
+        categories: MOCK_CATEGORIES,
+        products: MOCK_PRODUCTS
+      });
+    }
+
     const [categories] = await pool.query(
       'SELECT DISTINCT category FROM products ORDER BY category'
     );
@@ -32,11 +43,11 @@ router.get('/', async (req, res) => {
     console.error('========================================');
     console.error('');
     
-    // Tetap render halaman dengan data kosong
+    // Tetap render halaman dengan data mock
     res.render('index', {
-      title: 'Gspro - POS Kasir',
-      categories: [],
-      products: []
+      title: 'Gspro - POS Kasir (Demo Mode)',
+      categories: MOCK_CATEGORIES,
+      products: MOCK_PRODUCTS
     });
   }
 });
